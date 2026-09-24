@@ -1,22 +1,30 @@
-# Web AR Starter
+# Restaurant AR Menu — Version 2
 
-## What this prototype does
-- Opens as a normal webpage.
-- Detects whether `immersive-ar` is supported.
-- Starts an AR session with Three.js.
-- Detects a real-world surface using WebXR hit testing.
-- Lets you tap to place a small 3D cube.
+A simple WebXR restaurant AR prototype built with Three.js.
+
+## Current features
+- Android WebXR AR session
+- Surface hit testing
+- Blue placement reticle
+- Tap-to-place a stylized 3D burger
+- Self-contained burger model built from Three.js primitives
+- No backend required
 
 ## Run locally
-You need a local web server. For example:
+Use a local web server. For example:
 
-    python -m http.server 8000
+```bash
+python -m http.server 8000
+```
 
-Then open:
+Open `http://localhost:8000` in a browser.
 
-    http://localhost:8000
+For WebXR AR on a phone, deploy over HTTPS (for example GitHub Pages).
 
-For testing on a phone over the internet, deploy the folder to an HTTPS host such as GitHub Pages, Cloudflare Pages, or Vercel.
-
-## Important
-WebXR AR support is not universal across browsers/devices. HTTPS is required for WebXR in deployed sites.
+## Next planned features
+- Realistic GLB food models
+- Rotate with touch gestures
+- Pinch to resize
+- Remove/select food
+- Multiple menu items
+- Restaurant-specific QR links
