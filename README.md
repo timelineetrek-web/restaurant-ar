@@ -17,3 +17,7 @@ Then open `http://localhost:8000/` on a desktop for the page UI. WebXR AR testin
 
 ## Deploy
 The prototype can be deployed as static files using GitHub Pages or another HTTPS static host.
+
+
+## Version 4 touch-control fix
+This version uses page-level Pointer Events for Android WebXR touch gestures: one-finger rotation, two-finger pinch scaling, and tap selection.

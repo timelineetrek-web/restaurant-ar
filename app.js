@@ -165,105 +165,174 @@ removeButton.addEventListener('click', (event) => {
   status.textContent = reticle.visible ? 'Surface found — tap to place' : 'Move your phone until the blue ring appears';
 });
 
-// --- Touch controls ---
-// One finger: rotate the food after it has been placed.
-// Two fingers: pinch to scale the food.
-// A short single tap before placement places the food.
-// A short single tap on the burger selects it.
-let touches = new Map();
-let gestureStartDistance = 0;
-let gestureStartScale = 1;
-let lastSingleTouch = null;
-let touchMoved = false;
+// --- Touch / pointer controls ---
+// Version 4 uses Pointer Events on the whole page. This is more reliable on
+// Android WebXR DOM-overlay sessions than listening only on the WebGL canvas.
+// One finger drag = rotate, two fingers = pinch to resize, tap = select/deselect.
+document.documentElement.style.touchAction = 'none';
+document.body.style.touchAction = 'none';
 
-function distance(a, b) {
-  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+const pointers = new Map();
+let gestureMoved = false;
+let lastX = 0;
+let lastY = 0;
+let pinchStartDistance = 0;
+let pinchStartScale = 1;
+let gestureMode = 'none';
+
+function pointerDistance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-renderer.domElement.addEventListener('touchstart', (event) => {
+function getViewCamera() {
+  const xrCamera = renderer.xr.getCamera(camera);
+  return xrCamera.isArrayCamera && xrCamera.cameras.length
+    ? xrCamera.cameras[0]
+    : xrCamera;
+}
+
+function isTapOnBurger(clientX, clientY) {
+  if (!placed) return false;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1
+  );
+
+  const viewCamera = getViewCamera();
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(ndc, viewCamera);
+
+  const hits = raycaster.intersectObjects(burger.children, true)
+    .filter(hit => hit.object !== selectionRing);
+
+  if (hits.length) return true;
+
+  // Fallback: use the burger's projected screen position.
+  // This makes selection forgiving on small phone screens.
+  const worldPos = new THREE.Vector3();
+  burger.getWorldPosition(worldPos);
+  const projected = worldPos.clone().project(viewCamera);
+
+  const px = rect.left + (projected.x + 1) * 0.5 * rect.width;
+  const py = rect.top + (1 - projected.y) * 0.5 * rect.height;
+  return Math.hypot(clientX - px, clientY - py) < 140;
+}
+
+function onPointerDown(event) {
+  if (event.pointerType !== 'touch') return;
   event.preventDefault();
-  for (const touch of event.changedTouches) {
-    touches.set(touch.identifier, touch);
+
+  pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
+
+  gestureMoved = false;
+
+  if (pointers.size === 1) {
+    const p = pointers.get(event.pointerId);
+    lastX = p.x;
+    lastY = p.y;
+    gestureMode = placed ? 'rotate' : 'place';
+  } else if (pointers.size === 2 && placed) {
+    const pair = [...pointers.values()];
+    pinchStartDistance = pointerDistance(pair[0], pair[1]);
+    pinchStartScale = burger.scale.x;
+    gestureMode = 'pinch';
   }
+}
 
-  touchMoved = false;
-
-  if (touches.size === 1) {
-    const touch = [...touches.values()][0];
-    lastSingleTouch = { x: touch.clientX, y: touch.clientY };
-  } else if (touches.size === 2 && placed) {
-    const pair = [...touches.values()];
-    gestureStartDistance = distance(pair[0], pair[1]);
-    gestureStartScale = burger.scale.x;
-    lastSingleTouch = null;
-  }
-}, { passive: false });
-
-renderer.domElement.addEventListener('touchmove', (event) => {
+function onPointerMove(event) {
+  if (event.pointerType !== 'touch' || !pointers.has(event.pointerId)) return;
   event.preventDefault();
-  for (const touch of event.changedTouches) {
-    touches.set(touch.identifier, touch);
-  }
+
+  pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
   if (!placed) return;
 
-  if (touches.size === 1 && lastSingleTouch) {
-    const touch = [...touches.values()][0];
-    const dx = touch.clientX - lastSingleTouch.x;
-    const dy = touch.clientY - lastSingleTouch.y;
-    if (Math.hypot(dx, dy) > 6) touchMoved = true;
+  if (pointers.size === 1 && gestureMode === 'rotate') {
+    const p = pointers.get(event.pointerId);
+    const dx = p.x - lastX;
+    const dy = p.y - lastY;
+
+    if (Math.hypot(dx, dy) > 4) gestureMoved = true;
+
     if (selected) {
       burger.rotation.y += dx * 0.012;
+      burger.rotation.x += dy * 0.004;
+      burger.rotation.x = THREE.MathUtils.clamp(
+        burger.rotation.x,
+        -0.35,
+        0.35
+      );
     }
-    lastSingleTouch = { x: touch.clientX, y: touch.clientY };
-  } else if (touches.size >= 2 && gestureStartDistance > 0) {
-    const pair = [...touches.values()].slice(0, 2);
-    const currentDistance = distance(pair[0], pair[1]);
+
+    lastX = p.x;
+    lastY = p.y;
+  } else if (pointers.size >= 2 && pinchStartDistance > 0) {
+    const pair = [...pointers.values()].slice(0, 2);
+    const currentDistance = pointerDistance(pair[0], pair[1]);
+
     const scale = THREE.MathUtils.clamp(
-      gestureStartScale * (currentDistance / gestureStartDistance),
+      pinchStartScale * (currentDistance / pinchStartDistance),
       0.16,
       0.75
     );
+
     burger.scale.setScalar(scale);
-    // The selection ring is part of the burger, so it scales with it too.
-    touchMoved = true;
+    gestureMoved = true;
   }
-}, { passive: false });
+}
 
-renderer.domElement.addEventListener('touchend', (event) => {
+function onPointerUp(event) {
+  if (event.pointerType !== 'touch') return;
   event.preventDefault();
-  for (const touch of event.changedTouches) {
-    touches.delete(touch.identifier);
-  }
 
-  if (touches.size === 0) {
-    if (!touchMoved && event.changedTouches.length === 1) {
-      const touch = event.changedTouches[0];
-      if (!placed) {
-        placeBurger();
-      } else {
-        // Tap the burger area to select/deselect. A simple distance check keeps
-        // the interaction forgiving on a phone screen.
-        const canvasRect = renderer.domElement.getBoundingClientRect();
-        const x = ((touch.clientX - canvasRect.left) / canvasRect.width) * 2 - 1;
-        const y = -((touch.clientY - canvasRect.top) / canvasRect.height) * 2 + 1;
-        const xrCamera = renderer.xr.getCamera(camera);
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(new THREE.Vector2(x, y), xrCamera);
-        const hits = raycaster.intersectObjects(burger.children, true).filter(hit => hit.object !== selectionRing);
-        if (hits.length) selectBurger(!selected);
-      }
+  const wasSinglePointer = pointers.size === 1;
+  const wasMoved = gestureMoved;
+  const x = event.clientX;
+  const y = event.clientY;
+
+  pointers.delete(event.pointerId);
+  try { event.currentTarget.releasePointerCapture(event.pointerId); } catch {}
+
+  if (pointers.size > 0) {
+    // If one finger remains after a pinch, restart the rotation baseline.
+    if (pointers.size === 1) {
+      const p = [...pointers.values()][0];
+      lastX = p.x;
+      lastY = p.y;
+      gestureMode = 'rotate';
     }
-    lastSingleTouch = null;
-    gestureStartDistance = 0;
+    return;
   }
-}, { passive: false });
 
-renderer.domElement.addEventListener('touchcancel', () => {
-  touches.clear();
-  lastSingleTouch = null;
-  gestureStartDistance = 0;
-});
+  if (wasSinglePointer && !wasMoved) {
+    if (!placed) {
+      placeBurger();
+    } else if (isTapOnBurger(x, y)) {
+      selectBurger(!selected);
+    }
+  }
+
+  gestureMode = 'none';
+  pinchStartDistance = 0;
+}
+
+function onPointerCancel(event) {
+  if (event.pointerType === 'touch') {
+    pointers.delete(event.pointerId);
+    if (pointers.size === 0) {
+      gestureMode = 'none';
+      pinchStartDistance = 0;
+    }
+  }
+}
+
+window.addEventListener('pointerdown', onPointerDown, { passive: false });
+window.addEventListener('pointermove', onPointerMove, { passive: false });
+window.addEventListener('pointerup', onPointerUp, { passive: false });
+window.addEventListener('pointercancel', onPointerCancel, { passive: false });
 
 renderer.setAnimationLoop((time, frame) => {
   if (frame && hitTestSource && localReferenceSpace) {
