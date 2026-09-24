@@ -9,11 +9,17 @@
 <body>
   <div id="hud">
     <h1>Restaurant AR Menu</h1>
-    <p>Tap Start AR, find a table surface, then tap the blue ring to place the food. After placement, drag to rotate and pinch to resize.</p>
+    <p>Tap Start AR, find a table surface, then tap the blue ring to place the food. After placement, use the on-screen buttons to rotate and resize.</p>
   </div>
   <div id="status">Checking AR support…</div>
   <div id="controls-hint" hidden>☝️ Drag = rotate &nbsp; • &nbsp; 🤏 Pinch = resize</div>
-  <button id="remove-food" hidden>Remove food</button>
+  <div id="ar-controls" hidden aria-label="AR food controls">
+  <button id="rotate-left" type="button" aria-label="Rotate left">↶</button>
+  <button id="rotate-right" type="button" aria-label="Rotate right">↷</button>
+  <button id="scale-down" type="button" aria-label="Make smaller">−</button>
+  <button id="scale-up" type="button" aria-label="Make bigger">＋</button>
+  <button id="remove-food" type="button" aria-label="Remove food">🗑</button>
+</div>
   <script type="module" src="./app.js"></script>
 </body>
 </html>
