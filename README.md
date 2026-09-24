@@ -1,30 +1,19 @@
-# Restaurant AR Menu — Version 2
+# Restaurant AR Menu — Version 3
 
-A simple WebXR restaurant AR prototype built with Three.js.
+A small WebXR restaurant AR prototype using Three.js.
 
-## Current features
-- Android WebXR AR session
-- Surface hit testing
-- Blue placement reticle
-- Tap-to-place a stylized 3D burger
-- Self-contained burger model built from Three.js primitives
-- No backend required
+## Version 3 controls
+- Find a horizontal surface and tap the blue ring to place the burger.
+- One-finger drag: rotate the burger.
+- Two-finger pinch: resize the burger.
+- Tap the burger: select/deselect it.
+- Remove food: removes the current burger so another can be placed.
 
 ## Run locally
-Use a local web server. For example:
-
 ```bash
 python -m http.server 8000
 ```
+Then open `http://localhost:8000/` on a desktop for the page UI. WebXR AR testing should be done on a compatible phone/browser over HTTPS.
 
-Open `http://localhost:8000` in a browser.
-
-For WebXR AR on a phone, deploy over HTTPS (for example GitHub Pages).
-
-## Next planned features
-- Realistic GLB food models
-- Rotate with touch gestures
-- Pinch to resize
-- Remove/select food
-- Multiple menu items
-- Restaurant-specific QR links
+## Deploy
+The prototype can be deployed as static files using GitHub Pages or another HTTPS static host.
